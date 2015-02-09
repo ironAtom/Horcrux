@@ -1,3 +1,11 @@
+/**
+ * The Logger application, 
+ * 
+ * Author:	Qinyu Tong	<qtong@andrew.cmu.edu>
+ * 		  	Jian Wang	<jianwan3@andrew.cmu.edu>
+ * 
+ * Date:	Sun Feb  8 20:55:29 EST 2015
+ * */
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
