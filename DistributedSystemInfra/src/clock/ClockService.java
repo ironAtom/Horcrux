@@ -15,6 +15,7 @@ public abstract class ClockService {
 	// For message use
 	public abstract TimeStamp getSendTimeStamp();
 	public abstract TimeStamp getRecvTimeStamp(TimeStampedMessage tsMsg);
+	public abstract TimeStamp getRecvGroupTimeStamp(TimeStampedMessage tsMsg);
 	// For general purpose
 	public abstract TimeStamp issueTimestamp();
 	

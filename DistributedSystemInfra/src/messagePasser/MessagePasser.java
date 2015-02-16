@@ -17,13 +17,16 @@ import java.net.ConnectException;
 import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
+import java.util.ArrayList;
 import java.util.List;
 
+import message.GroupTimeStampedMessage;
 import message.Message;
 import message.TimeStampedMessage;
 import server.MultiThreadedServer;
 import server.WorkerRunnable;
 import snake.Configure;
+import snake.Group;
 import snake.MPnode;
 import snake.Rule;
 import clock.ClockService;
@@ -39,6 +42,8 @@ public class MessagePasser {
 	private CommUtil commUtil;
 	private List<MPnode> configurations;
 	private ClockService clockService;
+	private List<Group> groups;
+	private ClockService[] groupClockService;
 
 	// Constructor
 	public MessagePasser(String configuration_filename, String local_name, ClockType clockType) {
@@ -73,8 +78,40 @@ public class MessagePasser {
 		} else {
 			clockService = new VectorClock(size, position);			
 		}
-		commUtil = new CommUtil(configuration_filename, clockService);
+		commUtil = new CommUtil(configuration_filename, clockService, this);
 		
+		
+		// inital group service
+		List<Group> allgroups = conf.getGroups(configuration_filename);
+		
+		groups = new ArrayList<Group>();
+		 
+		//count how many groups contain this node
+		for(int i=0; i<allgroups.size(); i++) {
+			Group tmpGrp = allgroups.get(i);
+			List<String> mbs = tmpGrp.getMembers();
+			for(String m : mbs){
+				if(m.equalsIgnoreCase(localName)){ // is in the group
+					groups.add(tmpGrp); //add group that contains this node
+				}
+			}
+		}
+		
+		groupClockService = new ClockService[groups.size()];
+		
+		for (int i = 0; i < groups.size(); i++ ){
+			Group grp = groups.get(i);
+			List<String> members = grp.getMembers();
+			int inGroupPosition = 0;
+			for (int j = 0; j < members.size(); j++){
+				String member = members.get(j);
+				if(member.equalsIgnoreCase(localName)){
+					inGroupPosition = j;
+					break;
+				}
+			}
+			groupClockService[i] = new VectorClock(members.size(), inGroupPosition);
+		}
 		
 		// Open the server thread doing accept job
 		MultiThreadedServer server = new MultiThreadedServer(portNumber, commUtil);
@@ -116,16 +153,176 @@ public class MessagePasser {
 		return clockService.getRecvTimeStamp(tsMsg);
 	}
 	
+	public TimeStamp getRecvGroupTimeStamp(GroupTimeStampedMessage tsMsg) {
+		return groupClockService[tsMsg.getGroup()].getRecvGroupTimeStamp(tsMsg);
+	}
+	
+	public String getLocalName(){
+		return localName;
+	}
+	
 	// Check send rules and apply specific sending
 	public void send(Message message) {
 		
-		// should set timestamp for the msg
-		TimeStampedMessage tsMsg = (TimeStampedMessage)message;
-		tsMsg.setTimeStamp(clockService.getSendTimeStamp());
+		// should set group timestamp for the msg
+		GroupTimeStampedMessage tsMsg = (GroupTimeStampedMessage)message;
 		
+		
+		// check if multicast
+		boolean isGroupMsg = false;
+		for(int i = 0; i < groups.size(); i++) {
+			Group group = groups.get(i);
+			if(tsMsg.getDest().equalsIgnoreCase(group.getName())) {
+				isGroupMsg = true;
+				tsMsg.setOriginalSender(localName);
+				multicastMsg(tsMsg,i);
+				sequenceNumber++;//seq number only increase once each multicast
+//				// set group field
+//				tsMsg.setGroup(group.getName());
+//				List<String> members = group.getMembers();
+//				for(String member:members) {
+//					tsMsg.setDest(member);
+//					tsMsg.setGroupTimeStamp();
+//					setSendMsg(tsMsg);
+//				}
+				break;
+			}
+		}
+		// regular message
+		if(!isGroupMsg) {
+			setSendMsg(tsMsg);
+			sequenceNumber++;
+		}
+		
+	}
+
+	public void multicastMsg(GroupTimeStampedMessage message, int groupId) {
+		TimeStamp groupTimeStamp = groupClockService[groupId].getSendTimeStamp();
+		Group group = groups.get(groupId);
+		List<String> members = group.getMembers();
+		// Check send rules
+		Configure conf = new Configure();
+		List<Rule> rules = conf.getSendRules(configurationFilename);
+					
+	
+		for (String member : members){
+			message.setDest(member);
+			message.setGroup(groupId);
+			message.setGroupTimeStamp(groupTimeStamp);
+			message.set_source(localName);
+			message.set_duplicate(false);
+			message.set_seqNum(sequenceNumber);
+			
+			System.out.println("send message:" + message);
+			
+			String sendRule = "";
+			TimeStampedMessage tsDelayMessage = null;
+			for (Rule r : rules ) {	
+				if (r.matchRule(message)){
+					sendRule = r.action;
+					break;
+				}
+			}
+
+			switch(sendRule.toLowerCase()) {
+			case "duplicate":
+
+				sendToDest(message);
+
+				// check delay message
+				while((tsDelayMessage = (TimeStampedMessage)commUtil.updateOutDelayQueue(null, false)) != null)
+					sendToDest(tsDelayMessage);
+
+				message.set_duplicate(true);
+				sendToDest(message);
+
+				// check delay message
+				while((tsDelayMessage = (TimeStampedMessage)commUtil.updateOutDelayQueue(null, false)) != null)
+					sendToDest(tsDelayMessage);
+				break;
+			case "delay":	
+				commUtil.updateOutDelayQueue(message, true); // add message to delay queue
+				break;
+			case "drop":
+				break;
+			default:
+				sendToDest(message);
+
+				// check delay message
+				while((tsDelayMessage = (TimeStampedMessage)commUtil.updateOutDelayQueue(null, false)) != null)
+					sendToDest(tsDelayMessage);
+				break;
+			}
+		}
+	}
+	
+	//relay multicast msg
+	public void reMulticastMsg(GroupTimeStampedMessage message, int groupId) {
+		//TimeStamp groupTimeStamp = groupClockService[groupId].getSendTimeStamp(); // no timestamp change
+		Group group = groups.get(groupId);
+		List<String> members = group.getMembers();
+		// Check send rules
+		Configure conf = new Configure();
+		List<Rule> rules = conf.getSendRules(configurationFilename);
+					
+	
+		for (String member : members){
+			if(!member.equalsIgnoreCase(localName)){
+				message.setDest(member);
+				message.set_source(localName);
+				message.set_duplicate(false);
+				
+				//System.out.println("send message:" + message);
+				
+				String sendRule = "";
+				TimeStampedMessage tsDelayMessage = null;
+				for (Rule r : rules ) {	
+					if (r.matchRule(message)){
+						sendRule = r.action;
+						break;
+					}
+				}
+
+				switch(sendRule.toLowerCase()) {
+				case "duplicate":
+
+					sendToDest(message);
+
+					// check delay message
+					while((tsDelayMessage = (TimeStampedMessage)commUtil.updateOutDelayQueue(null, false)) != null)
+						sendToDest(tsDelayMessage);
+
+					message.set_duplicate(true);
+					sendToDest(message);
+
+					// check delay message
+					while((tsDelayMessage = (TimeStampedMessage)commUtil.updateOutDelayQueue(null, false)) != null)
+						sendToDest(tsDelayMessage);
+					break;
+				case "delay":	
+					commUtil.updateOutDelayQueue(message, true); // add message to delay queue
+					break;
+				case "drop":
+					break;
+				default:
+					sendToDest(message);
+
+					// check delay message
+					while((tsDelayMessage = (TimeStampedMessage)commUtil.updateOutDelayQueue(null, false)) != null)
+						sendToDest(tsDelayMessage);
+					break;
+				}
+			}
+		}
+	}
+
+	// set message
+	private void setSendMsg(Message message) {
+		GroupTimeStampedMessage tsMsg = (GroupTimeStampedMessage)message;
+		
+		tsMsg.setTimeStamp(clockService.getSendTimeStamp());
 		tsMsg.set_source(localName);
 		tsMsg.set_seqNum(sequenceNumber);
-		sequenceNumber++;
 		tsMsg.set_duplicate(false);
 		
 		System.out.println("sent message: "+tsMsg);
@@ -135,7 +332,7 @@ public class MessagePasser {
 		List<Rule> rules = conf.getSendRules(configurationFilename);
 		String sendRule = "";
 		TimeStampedMessage tsDelayMessage = null;
-		for (Rule r : rules ){	
+		for (Rule r : rules ) {	
 			if (r.matchRule(tsMsg)){
 				sendRule = r.action;
 				break;
@@ -172,7 +369,9 @@ public class MessagePasser {
 			break;
 		}
 	}
-
+	
+	
+	
 	// Actually send to dest
 	private void sendToDest(Message message) {
 		String dest = message.getDest();
@@ -254,7 +453,7 @@ public class MessagePasser {
 		while(isFail) {
 			// write the message
 			try {
-				outStream.writeObject((TimeStampedMessage)message); 
+				outStream.writeObject((GroupTimeStampedMessage)message); 
 				outStream.flush();
 				outStream.reset(); // in case stream caches serialized object
 				isFail = false;
@@ -290,5 +489,39 @@ public class MessagePasser {
 				e.printStackTrace();
 			} 
 		}
+	}
+
+	public Message getNextDeliverMsg(List<Message> holdbackQueue){
+		
+		for (Message msg : holdbackQueue){
+			GroupTimeStampedMessage gMsg = (GroupTimeStampedMessage)msg;
+			TimeStamp msgTs = gMsg.getGroupTimeStamp();
+			int[] msgTsVector = msgTs.getValue();
+			int group = gMsg.getGroup();
+			VectorClock vec = (VectorClock)(groupClockService[group]);
+			int[] recvVector = vec.getVector();
+//			int pos = vec.getPosition();
+			
+			String orgSender = gMsg.getOriginalSender();
+			Group grp = groups.get(group);
+			int pos = grp.getInGroupPosition(orgSender);
+			if(msgTsVector[pos] == recvVector[pos]+1){
+				boolean isBefore = true;
+				for (int i = 0; i < msgTsVector.length; i++){
+					if (i != pos ){
+						if (msgTsVector[i] > recvVector[i]){
+							isBefore = false;
+							break;
+						}
+					}
+				}
+				if (isBefore){
+					recvVector[pos] += 1; // increment vector
+					return msg;
+				}
+			}
+			
+		}
+		return null;
 	}
 }

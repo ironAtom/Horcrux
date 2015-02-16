@@ -42,4 +42,10 @@ public class LogicalClock extends ClockService {
 		return getSendTimeStamp();
 	}
 
+	@Override
+	public TimeStamp getRecvGroupTimeStamp(TimeStampedMessage tsMsg) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
 }

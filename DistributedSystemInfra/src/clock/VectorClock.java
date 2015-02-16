@@ -10,6 +10,7 @@ package clock;
 
 import java.util.Arrays;
 
+import message.GroupTimeStampedMessage;
 import message.TimeStampedMessage;
 
 public class VectorClock extends ClockService {
@@ -39,11 +40,26 @@ public class VectorClock extends ClockService {
 	}
 
 	// apply recv time stamp scheme
-	public synchronized TimeStamp getRecvTimeStamp(TimeStampedMessage tsMsg) {
-		
+	public synchronized TimeStamp getRecvTimeStamp(TimeStampedMessage message) {
+		GroupTimeStampedMessage tsMsg = (GroupTimeStampedMessage)message;//converto gpTsMsg
 		counterVector[position] += increment;
 		
 		int[] value = tsMsg.getTimeStamp().getValue();
+		int i;
+		for(i=0; i<counterVector.length; i++) {
+			counterVector[i] = Integer.max(counterVector[i], value[i]);
+		}
+		
+		value = Arrays.copyOf(counterVector, counterVector.length);
+		return new TimeStamp(value, clockType);
+
+	}
+	
+	public synchronized TimeStamp getRecvGroupTimeStamp(TimeStampedMessage message) {
+		GroupTimeStampedMessage tsMsg = (GroupTimeStampedMessage)message;//converto gpTsMsg
+		counterVector[position] += increment;
+		
+		int[] value = tsMsg.getGroupTimeStamp().getValue();
 		int i;
 		for(i=0; i<counterVector.length; i++) {
 			counterVector[i] = Integer.max(counterVector[i], value[i]);
@@ -58,7 +74,14 @@ public class VectorClock extends ClockService {
 	public synchronized TimeStamp issueTimestamp() {
 		return getSendTimeStamp();
 	}
-
+	
+	
+	public synchronized int[] getVector(){
+		return counterVector;
+	}
+	public synchronized int getPosition(){
+		return this.position;
+	}
 	
 }
 

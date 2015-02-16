@@ -20,20 +20,26 @@ import clock.ClockService;
 // Class that contains a incoming message queue and a name socket map
 public class CommUtil {
 	private List<Message> incomingMessages;
+	private List<Message> receive;
+	private List<Message> coHoldbackQueue;
 	private Map<String, SocketPairs> nameSocketMap;
 	private List<Message> outgoingMessagesDelay;
 	private List<Message> incomingMessagesDelay;
 	private String configurationFilename;
 	private ClockService clockService;
+	private MessagePasser msgPasser;
 	
 	// Constructor
-	public CommUtil(String configurationFilename, ClockService clockService) {
+	public CommUtil(String configurationFilename, ClockService clockService, MessagePasser msgPasser) {
 		incomingMessages = new LinkedList<Message>();
+		receive =  new LinkedList<Message>();
+		coHoldbackQueue = new LinkedList<Message>();
 		nameSocketMap = new HashMap<String, SocketPairs>();
 		outgoingMessagesDelay = new LinkedList<Message>();
 		incomingMessagesDelay = new LinkedList<Message>();
 		this.configurationFilename = configurationFilename;
 		this.clockService = clockService; 
+		this.msgPasser = msgPasser;
 	}
 	
 	// Update incoming message delay queue
@@ -57,6 +63,33 @@ public class CommUtil {
 		} else {
 			if(!outgoingMessagesDelay.isEmpty())
 				return outgoingMessagesDelay.remove(0);
+			else 
+				return null;
+		}
+	}
+	
+	//update Reliable recieve queue
+	public synchronized Message updateReceive(Message message, boolean isAdd){
+		if(isAdd) {
+			receive.add(message);
+			return null;
+		} else {
+			if(!receive.isEmpty())
+				return receive.remove(0);
+			else 
+				return null;
+		}
+	}
+	
+	public synchronized Message updateCoHoldbackQueue(Message message, boolean isAdd){
+		if(isAdd) {
+			coHoldbackQueue.add(message);
+			return null;
+		} else {
+			if(!coHoldbackQueue.isEmpty()){
+				 coHoldbackQueue.remove(message);
+				 return message;
+			}
 			else 
 				return null;
 		}
@@ -101,5 +134,19 @@ public class CommUtil {
 	public synchronized ClockService getClockService() {
 		return clockService;
 	}
+
+	public MessagePasser getMsgPasser() {
+		return msgPasser;
+	}
+	
+	public List<Message> getReceive() {
+		return receive;
+	}
+	
+	public List<Message> getCoHoldbackQueue(){
+		return coHoldbackQueue;
+	}
+
+	
 	
 }

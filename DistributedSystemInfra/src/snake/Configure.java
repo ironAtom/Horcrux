@@ -44,6 +44,36 @@ public class Configure {
 	}
 	
 	/**
+	 * get a list of groups from YAML format configuration file
+	 * @param configuration_filename
+	 * @return a list of groups
+	 * */
+	public List<Group> getGroups(String configuration_filename){
+		List<Group> groups = new ArrayList<Group>();
+	    InputStream input;
+		try {
+			input = new FileInputStream(new File(configuration_filename));
+			Yaml yaml = new Yaml();
+			Map<String, Object> groupObject = (Map<String, Object>) yaml.load(input);
+		    List<Map<String, Object>> groupList = (List<Map<String, Object>>)groupObject.get("groups");
+		    if (groupList != null){
+		    	for(Map<String, Object> group :groupList){
+					String gname = (String)group.get("name");
+		    		List<String> members = (List<String>)group.get("members");
+			    	Group newGroup = new Group(gname, members);
+//			    	System.out.println(gname+" "+members.toString());
+			    	groups.add(newGroup);
+			    }
+		    }
+		    
+		} catch (FileNotFoundException e) {
+			System.out.println("Configuration file not found! Exit.");
+			System.exit(1);
+		}
+		return groups;
+	}
+	
+	/**
 	 * get a list of send rules from YAML format configuration file
 	 * @param configuration_filename
 	 * @return a list of Rules

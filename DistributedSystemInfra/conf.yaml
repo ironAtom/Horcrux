@@ -14,22 +14,28 @@ configuration :
    ip : 127.0.0.1
    port : 20001
  - name : charlie
-   ip : 128.237.165.94
+   ip : 127.0.0.1
    port : 20002
  - name : david
-   ip : 128.237.165.94
-   port : 20003
- - name : logger
    ip : 127.0.0.1
-   port : 20004
-   
+   port : 20003
+
+groups : # A single, top-level section in the YAML file
+ - name : Group1 # Group names must be unique
+   members : # Any number of members in the group
+    - alice
+    - bob
+    - charlie
+ - name : Group2 # As many groups as you’d like
+   members :
+    - david
+    - bob
+    - charlie
 
 sendRules :
  - action : drop # Ack message number 4 from bob to alice will not be sent
-   src : bob
-   dest : alice
-   kind : Ack
-   seqNum : 4
+   src : alice
+   dest : bob
  - action : delay # Every Lookup message in the system will be delayed
    kind : Lookup
  #- action : duplicate
@@ -40,33 +46,4 @@ receiveRules :
    seqNum : 3
  #- action : drop
   # duplicate : true
-   
 
-# # YAML
-# - name: PyYAML
-#   status: 4
-#   license: MIT
-#   language: Python
-# - name: PySyck
-#   status: 5
-#   license: BSD
-#   language: Python
-# # Java
-# [{'status': 4, 'language': 'Python', 'name': 'PyYAML', 'license': 'MIT'},
-# {'status': 5, 'license': 'BSD', 'name': 'PySyck', 'language': 'Python'}]
-
-
-# {
-#     configuration=[
-#         {name=alice, ip=192.168.1.52, port=12344},
-#         {name=bob, ip=192.168.1.112, port=14255},
-#         {name=charlie, ip=128.2.130.19, port=12998},
-#         {name=daphnie, ip=192.168.1.87, port=1987}
-#         ],
-#     sendRules=[
-#         {action=drop, src=bob, dest=alice, kind=Ack, seqNum=4},
-#         {action=delay, kind=Lookup}],
-#     receiveRules=[
-#         {action=duplicate, src=charlie, seqNum=3}
-#         ]
-# }

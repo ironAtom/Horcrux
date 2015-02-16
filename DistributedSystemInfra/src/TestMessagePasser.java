@@ -3,7 +3,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 
-import message.TimeStampedMessage;
+import message.GroupTimeStampedMessage;
 import messagePasser.MessagePasser;
 import clock.ClockService;
 import clock.ClockType;
@@ -60,7 +60,7 @@ public class TestMessagePasser {
 		// Instantiate a MessagePasser
 		MessagePasser mp = new MessagePasser(configuration_filename, local_name, clockType);
 
-		TimeStampedMessage tsMsg = null;
+		GroupTimeStampedMessage tsMsg = null;
 		boolean isQuit = false;
 
 		while (!isQuit) {
@@ -88,14 +88,21 @@ public class TestMessagePasser {
 						String kind = parts[2];
 						String data = parts[3];
 						
-						tsMsg = new TimeStampedMessage(dest, kind, data); 
+						tsMsg = new GroupTimeStampedMessage(dest, kind, data); 
 						mp.send(tsMsg);
 						break;
 					case "recv":
-						tsMsg = (TimeStampedMessage)mp.receive();
+						tsMsg = (GroupTimeStampedMessage)mp.receive();
 						if(tsMsg != null) {
-							System.out.println(mp.getRecvTimeStamp(tsMsg));
-							System.out.println("recved message: " + tsMsg);
+							if (tsMsg.getGroup() == -1){ // ordinary msg
+								System.out.println(mp.getRecvTimeStamp(tsMsg));
+								System.out.println("recved message: " + tsMsg);
+							}
+							else{
+								System.out.println(mp.getRecvGroupTimeStamp(tsMsg));
+								System.out.println("recved message: " + tsMsg);
+							}
+							
 						} else {
 							System.out.println("No message in the queue yet.");
 						}
