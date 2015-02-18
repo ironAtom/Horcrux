@@ -82,17 +82,17 @@ public class MessagePasser {
 		
 		
 		// inital group service
-		List<Group> allgroups = conf.getGroups(configuration_filename);
+		groups = conf.getGroups(configuration_filename);
 		
-		groups = new ArrayList<Group>();
+		List<Group> myGroups = new ArrayList<Group>();
 		 
 		//count how many groups contain this node
-		for(int i=0; i<allgroups.size(); i++) {
-			Group tmpGrp = allgroups.get(i);
+		for(int i=0; i<groups.size(); i++) {
+			Group tmpGrp = groups.get(i);
 			List<String> mbs = tmpGrp.getMembers();
 			for(String m : mbs){
 				if(m.equalsIgnoreCase(localName)){ // is in the group
-					groups.add(tmpGrp); //add group that contains this node
+					myGroups.add(tmpGrp); //add group that contains this node
 				}
 			}
 		}
@@ -101,16 +101,22 @@ public class MessagePasser {
 		
 		for (int i = 0; i < groups.size(); i++ ){
 			Group grp = groups.get(i);
-			List<String> members = grp.getMembers();
-			int inGroupPosition = 0;
-			for (int j = 0; j < members.size(); j++){
-				String member = members.get(j);
-				if(member.equalsIgnoreCase(localName)){
-					inGroupPosition = j;
-					break;
+			//grp is in myGroup list
+			for (int j = 0; j < myGroups.size(); j++){
+				Group myGrp = myGroups.get(j);
+				if (grp.getName().equalsIgnoreCase(myGrp.getName())){
+					List<String> members = grp.getMembers();
+					int inGroupPosition = 0;
+					for (int k = 0; k < members.size(); k++){
+						String member = members.get(k);
+						if(member.equalsIgnoreCase(localName)){
+							inGroupPosition = k;
+							break;
+						}
+					}
+					groupClockService[i] = new VectorClock(members.size(), inGroupPosition);
 				}
 			}
-			groupClockService[i] = new VectorClock(members.size(), inGroupPosition);
 		}
 		
 		// Open the server thread doing accept job
@@ -506,25 +512,46 @@ public class MessagePasser {
 			String orgSender = gMsg.getOriginalSender();
 			Group grp = groups.get(group);
 			int pos = grp.getInGroupPosition(orgSender);
-			if(msgTsVector[pos] == recvVector[pos]+1){
-				boolean isBefore = true;
-				for (int i = 0; i < msgTsVector.length; i++){
-					if (i != pos ){
-						if (msgTsVector[i] > recvVector[i]){
-							isBefore = false;
-							break;
+			if (gMsg.getOriginalSender().equalsIgnoreCase(localName)) {//from itself
+				if(msgTsVector[pos] == recvVector[pos]){
+					boolean isBefore = true;
+					for (int i = 0; i < msgTsVector.length; i++){
+						if (i != pos ){
+							if (msgTsVector[i] > recvVector[i]){
+								isBefore = false;
+								break;
+							}
 						}
 					}
-				}
-				if (isBefore){
-					//recvVector[pos] += 1; // increment vector
-					TimeStamp ts = vec.getRecvGroupTimeStamp(gMsg);
-					System.out.println("TS:"+ ts);
-					gMsg.setReceiveTimeStamp(ts);;//increment group vector clock
-					return gMsg;
+					if (isBefore){
+						//recvVector[pos] += 1; // increment vector
+						TimeStamp ts = vec.getRecvGroupTimeStamp(gMsg);
+						//System.out.println("TS:"+ ts);
+						gMsg.setReceiveTimeStamp(ts);;//increment group vector clock
+						return gMsg;
+					}
 				}
 			}
-			
+			else{ //not from itself
+				if(msgTsVector[pos] == recvVector[pos]+1){
+					boolean isBefore = true;
+					for (int i = 0; i < msgTsVector.length; i++){
+						if (i != pos ){
+							if (msgTsVector[i] > recvVector[i]){
+								isBefore = false;
+								break;
+							}
+						}
+					}
+					if (isBefore){
+						//recvVector[pos] += 1; // increment vector
+						TimeStamp ts = vec.getRecvGroupTimeStamp(gMsg);
+						//System.out.println("TS:"+ ts);
+						gMsg.setReceiveTimeStamp(ts);;//increment group vector clock
+						return gMsg;
+					}
+				}
+			}		
 		}
 		return null;
 	}

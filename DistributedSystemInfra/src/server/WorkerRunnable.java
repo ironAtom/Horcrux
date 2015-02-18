@@ -155,8 +155,6 @@ public class WorkerRunnable implements Runnable{
 									commUtil.updateIncomingMessages(tsDelayMessage, true);
 								}
 							}
-							
-							
 						}
 						break;
 					case "delay":	
@@ -165,12 +163,6 @@ public class WorkerRunnable implements Runnable{
 					case "drop":
 						break;
 					default:
-						//tsMsg.setTimeStamp(commUtil.getClockService().getRecvTimeStamp(tsMsg));
-						
-//						if ((!copyMsg.getOriginalSender().equalsIgnoreCase(commUtil.getMsgPasser().getLocalName()))  
-//						&& copyMsg.getOriginalSender().equalsIgnoreCase(copyMsg.getSource())){
-//							commUtil.getMsgPasser().reMulticastMsg(copyMsg, copyMsg.getGroup());
-//						}
 						List<Message> recvQueue1 = commUtil.getReceive();
 						int i1 = 0;
 						for(; i1 < recvQueue1.size(); i1++){
