@@ -74,28 +74,12 @@ public class WorkerRunnable implements Runnable{
 					}
 				}
 				
-				switch(recvRule.toLowerCase()) {
-				case "duplicate":
-					// deliver one to the queue
-					// should set timestamp for the msg recved
-					// tsMsg.setTimeStamp(commUtil.getClockService().getRecvTimeStamp(tsMsg));
-					List<Message> recvQueue = commUtil.getReceive();
-					int i = 0;
-					for(; i < recvQueue.size(); i++){
-						GroupTimeStampedMessage gMsg = (GroupTimeStampedMessage)recvQueue.get(i);
-						if(gMsg.isSameMsg(tsMsg))
-							break;
-					}
-					
-					if (i >= recvQueue.size()){//tsMsg is not received before
-						commUtil.updateReceive(tsMsg, true);//add tsMsg to Receive
-						
-						if (!tsMsg.getOriginalSender().equalsIgnoreCase(commUtil.getMsgPasser().getLocalName())){
-							//if is not original sender, multicast the message
-							GroupTimeStampedMessage copyMsg = new GroupTimeStampedMessage(tsMsg);
-							commUtil.getMsgPasser().reMulticastMsg(copyMsg, copyMsg.getGroup());
-						}
-						
+				if (tsMsg.getGroup() == -1) {
+					switch(recvRule.toLowerCase()) { // ordinary message
+					case "duplicate":
+						// deliver one to the queue
+						// should set timestamp for the msg recved
+						// tsMsg.setTimeStamp(commUtil.getClockService().getRecvTimeStamp(tsMsg));
 						commUtil.updateIncomingMessages(tsMsg, true);
 						// check all delay messages
 						while((tsDelayMessage = (GroupTimeStampedMessage)commUtil.updateInDelayQueue(null, false)) != null) {
@@ -110,56 +94,122 @@ public class WorkerRunnable implements Runnable{
 							//tsDelayMessage.setTimeStamp(commUtil.getClockService().getRecvTimeStamp(tsDelayMessage));
 							commUtil.updateIncomingMessages(tsDelayMessage, true);
 						}
-					}
-					break;
-				case "delay":	
-					commUtil.updateInDelayQueue(tsMsg, true); // add message to delay queue
-					break;
-				case "drop":
-					break;
-				default:
-					//tsMsg.setTimeStamp(commUtil.getClockService().getRecvTimeStamp(tsMsg));
-					
-//					if ((!copyMsg.getOriginalSender().equalsIgnoreCase(commUtil.getMsgPasser().getLocalName()))  
-//					&& copyMsg.getOriginalSender().equalsIgnoreCase(copyMsg.getSource())){
-//						commUtil.getMsgPasser().reMulticastMsg(copyMsg, copyMsg.getGroup());
-//					}
-					List<Message> recvQueue1 = commUtil.getReceive();
-					int i1 = 0;
-					for(; i1 < recvQueue1.size(); i1++){
-						GroupTimeStampedMessage gMsg = (GroupTimeStampedMessage)recvQueue1.get(i1);
-						if(gMsg.isSameMsg(tsMsg))
-							break;
-					}
-					
-					if (i1 >= recvQueue1.size()){//tsMsg is not received before
-						commUtil.updateReceive(tsMsg, true);//add tsMsg to Receive
-						
-						if (!tsMsg.getOriginalSender().equalsIgnoreCase(commUtil.getMsgPasser().getLocalName())){
-							//if is not original sender, multicast the message
-							GroupTimeStampedMessage copyMsg = new GroupTimeStampedMessage(tsMsg);
-							commUtil.getMsgPasser().reMulticastMsg(copyMsg, copyMsg.getGroup());
+						break;
+					case "delay":	
+						commUtil.updateInDelayQueue(tsMsg, true); // add message to delay queue
+						break;
+					case "drop":
+						break;
+					default:
+						//tsMsg.setTimeStamp(commUtil.getClockService().getRecvTimeStamp(tsMsg));
+						commUtil.updateIncomingMessages(tsMsg, true);	
+						while((tsDelayMessage = (GroupTimeStampedMessage)commUtil.updateInDelayQueue(null, false)) != null) {
+							//tsDelayMessage.setTimeStamp(commUtil.getClockService().getRecvTimeStamp(tsDelayMessage));
+							commUtil.updateIncomingMessages(tsDelayMessage, true);
 						}
-						//add to CO-holdback queue
-						commUtil.updateCoHoldbackQueue(tsMsg, true);
-						
-						Message msg = commUtil.getMsgPasser().getNextDeliverMsg(commUtil.getCoHoldbackQueue());
-						while(msg != null){//deliver m
-							commUtil.updateCoHoldbackQueue(msg, false);//remove from hold back queue
-							
-							commUtil.updateIncomingMessages(msg, true);
-							msg = commUtil.getMsgPasser().getNextDeliverMsg(commUtil.getCoHoldbackQueue());
-							while((tsDelayMessage = (GroupTimeStampedMessage)commUtil.updateInDelayQueue(null, false)) != null) {
-								//tsDelayMessage.setTimeStamp(commUtil.getClockService().getRecvTimeStamp(tsDelayMessage));
-								commUtil.updateIncomingMessages(tsDelayMessage, true);
-							}
-						}
-						
-						
+						break;
 					}
-					
-					break;
 				}
+				else { //multicast message
+					switch(recvRule.toLowerCase()) {
+					case "duplicate":
+						// deliver one to the queue
+						// should set timestamp for the msg recved
+						// tsMsg.setTimeStamp(commUtil.getClockService().getRecvTimeStamp(tsMsg));
+						List<Message> recvQueue = commUtil.getReceive();
+						int i = 0;
+						for(; i < recvQueue.size(); i++){
+							GroupTimeStampedMessage gMsg = (GroupTimeStampedMessage)recvQueue.get(i);
+							if(gMsg.isSameMsg(tsMsg))
+								break;
+						}
+						
+						if (i >= recvQueue.size()){//tsMsg is not received before
+							commUtil.updateReceive(tsMsg, true);//add tsMsg to Receive
+							
+							if (!tsMsg.getOriginalSender().equalsIgnoreCase(commUtil.getMsgPasser().getLocalName())){
+								//if is not original sender, multicast the message
+								GroupTimeStampedMessage copyMsg = new GroupTimeStampedMessage(tsMsg);
+								commUtil.getMsgPasser().reMulticastMsg(copyMsg, copyMsg.getGroup());
+							}
+							//add to CO-holdback queue
+							commUtil.updateCoHoldbackQueue(tsMsg, true);
+							
+							Message msg = null;
+							while((msg = commUtil.getMsgPasser().getNextDeliverMsg(commUtil.getCoHoldbackQueue())) != null){//deliver m
+								commUtil.updateCoHoldbackQueue(msg, false);//remove from hold back queue
+								
+								commUtil.updateIncomingMessages(msg, true); // add to userinput Queue
+								//msg = commUtil.getMsgPasser().getNextDeliverMsg(commUtil.getCoHoldbackQueue());
+								
+								while((tsDelayMessage = (GroupTimeStampedMessage)commUtil.updateInDelayQueue(null, false)) != null) {
+									//tsDelayMessage.setTimeStamp(commUtil.getClockService().getRecvTimeStamp(tsDelayMessage));
+									commUtil.updateIncomingMessages(tsDelayMessage, true);
+								}
+								
+								commUtil.updateIncomingMessages(msg, true); // add to userinput Queue
+								//msg = commUtil.getMsgPasser().getNextDeliverMsg(commUtil.getCoHoldbackQueue());
+								
+								while((tsDelayMessage = (GroupTimeStampedMessage)commUtil.updateInDelayQueue(null, false)) != null) {
+									//tsDelayMessage.setTimeStamp(commUtil.getClockService().getRecvTimeStamp(tsDelayMessage));
+									commUtil.updateIncomingMessages(tsDelayMessage, true);
+								}
+							}
+							
+							
+						}
+						break;
+					case "delay":	
+						commUtil.updateInDelayQueue(tsMsg, true); // add message to delay queue
+						break;
+					case "drop":
+						break;
+					default:
+						//tsMsg.setTimeStamp(commUtil.getClockService().getRecvTimeStamp(tsMsg));
+						
+//						if ((!copyMsg.getOriginalSender().equalsIgnoreCase(commUtil.getMsgPasser().getLocalName()))  
+//						&& copyMsg.getOriginalSender().equalsIgnoreCase(copyMsg.getSource())){
+//							commUtil.getMsgPasser().reMulticastMsg(copyMsg, copyMsg.getGroup());
+//						}
+						List<Message> recvQueue1 = commUtil.getReceive();
+						int i1 = 0;
+						for(; i1 < recvQueue1.size(); i1++){
+							GroupTimeStampedMessage gMsg = (GroupTimeStampedMessage)recvQueue1.get(i1);
+							if(gMsg.isSameMsg(tsMsg))
+								break;
+						}
+						
+						if (i1 >= recvQueue1.size()){//tsMsg is not received before
+							commUtil.updateReceive(tsMsg, true);//add tsMsg to Receive
+							
+							if (!tsMsg.getOriginalSender().equalsIgnoreCase(commUtil.getMsgPasser().getLocalName())){
+								//if is not original sender, multicast the message
+								GroupTimeStampedMessage copyMsg = new GroupTimeStampedMessage(tsMsg);
+								commUtil.getMsgPasser().reMulticastMsg(copyMsg, copyMsg.getGroup());
+							}
+							//add to CO-holdback queue
+							commUtil.updateCoHoldbackQueue(tsMsg, true);
+							
+							Message msg = null;
+							while((msg = commUtil.getMsgPasser().getNextDeliverMsg(commUtil.getCoHoldbackQueue())) != null){//deliver m
+								commUtil.updateCoHoldbackQueue(msg, false);//remove from hold back queue
+								
+								commUtil.updateIncomingMessages(msg, true); // add to userinput Queue
+								//msg = commUtil.getMsgPasser().getNextDeliverMsg(commUtil.getCoHoldbackQueue());
+								
+								while((tsDelayMessage = (GroupTimeStampedMessage)commUtil.updateInDelayQueue(null, false)) != null) {
+									//tsDelayMessage.setTimeStamp(commUtil.getClockService().getRecvTimeStamp(tsDelayMessage));
+									commUtil.updateIncomingMessages(tsDelayMessage, true);
+								}
+							}
+							
+							
+						}
+						
+						break;
+					}
+				}
+				
 			} catch(EOFException e) {
 				// connection closed, clear socket pairs
 				try {

@@ -154,7 +154,7 @@ public class MessagePasser {
 	}
 	
 	public TimeStamp getRecvGroupTimeStamp(GroupTimeStampedMessage tsMsg) {
-		return groupClockService[tsMsg.getGroup()].getRecvGroupTimeStamp(tsMsg);
+		return tsMsg.getReceiveTimeStamp();
 	}
 	
 	public String getLocalName(){
@@ -272,7 +272,7 @@ public class MessagePasser {
 				message.set_source(localName);
 				message.set_duplicate(false);
 				
-				//System.out.println("send message:" + message);
+				//System.out.println("re Multicast message:" + message);
 				
 				String sendRule = "";
 				TimeStampedMessage tsDelayMessage = null;
@@ -498,6 +498,7 @@ public class MessagePasser {
 			TimeStamp msgTs = gMsg.getGroupTimeStamp();
 			int[] msgTsVector = msgTs.getValue();
 			int group = gMsg.getGroup();
+			
 			VectorClock vec = (VectorClock)(groupClockService[group]);
 			int[] recvVector = vec.getVector();
 //			int pos = vec.getPosition();
@@ -516,8 +517,11 @@ public class MessagePasser {
 					}
 				}
 				if (isBefore){
-					recvVector[pos] += 1; // increment vector
-					return msg;
+					//recvVector[pos] += 1; // increment vector
+					TimeStamp ts = vec.getRecvGroupTimeStamp(gMsg);
+					System.out.println("TS:"+ ts);
+					gMsg.setReceiveTimeStamp(ts);;//increment group vector clock
+					return gMsg;
 				}
 			}
 			

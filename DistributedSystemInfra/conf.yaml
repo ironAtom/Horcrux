@@ -33,11 +33,6 @@ groups : # A single, top-level section in the YAML file
     - charlie
 
 sendRules :
- - action : drop # Ack message number 4 from bob to alice will not be sent
-   src : alice
-   dest : bob
- - action : delay # Every Lookup message in the system will be delayed
-   kind : Lookup
  #- action : duplicate
 
 receiveRules :

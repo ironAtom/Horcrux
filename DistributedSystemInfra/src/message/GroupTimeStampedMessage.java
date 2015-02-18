@@ -7,6 +7,7 @@ public class GroupTimeStampedMessage extends TimeStampedMessage {
 	private TimeStamp groupTimeStamp; // add a field
 	private int group = -1;
 	private String originalSender;
+	private TimeStamp receiveTimeStamp; 
 	
 	public GroupTimeStampedMessage(String dest, String kind, Object data) {
 		super(dest, kind, data);
@@ -29,6 +30,14 @@ public class GroupTimeStampedMessage extends TimeStampedMessage {
 
 	public TimeStamp getGroupTimeStamp() {
 		return groupTimeStamp;
+	}
+	
+	public TimeStamp getReceiveTimeStamp() {
+		return receiveTimeStamp;
+	}
+	
+	public void setReceiveTimeStamp(TimeStamp recvTS) {
+		this.receiveTimeStamp = recvTS;
 	}
 	
 	
@@ -57,7 +66,7 @@ public class GroupTimeStampedMessage extends TimeStampedMessage {
 	@Override
 	public String toString() {
 		
-		return super.toString() +" Original Sender: "+ originalSender + " Group:"+ group +" Group TS: " + groupTimeStamp;
+		return super.toString() +" Original Sender: "+ originalSender + " Group:"+ group +" GroupTS: " + groupTimeStamp + "RecvTS: " +receiveTimeStamp;
 	}
 	
 	public boolean isSameMsg(GroupTimeStampedMessage gMsg){
