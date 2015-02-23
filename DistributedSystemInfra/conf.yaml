@@ -10,15 +10,45 @@ configuration :
    ip : 127.0.0.1
    port : 20000 # This is the incoming port on which MP will listen
                 # May be changed for further communication as usual
+   memberOf :    - Group1
+    - Group4
+    - Group5
  - name : bob
    ip : 127.0.0.1
    port : 20001
+   memberOf :    - Group2
+    - Group1
+    - Group5
  - name : charlie
    ip : 127.0.0.1
    port : 20002
+   memberOf :    - Group3
+    - Group1
+    - Group7
  - name : david
    ip : 127.0.0.1
    port : 20003
+   memberOf :    - Group4
+    - Group2
+    - Group7
+ - name : ella
+   ip : 127.0.0.1
+   port : 20004
+   memberOf :    - Group5
+    - Group3
+    - Group4
+ - name : frank
+   ip : 127.0.0.1
+   port : 20005
+   memberOf :    - Group6
+    - Group2
+    - Group3
+ - name : george
+   ip : 127.0.0.1
+   port : 20006
+   memberOf :    - Group7
+    - Group5
+    - Group6
 
 groups : # A single, top-level section in the YAML file
  - name : Group1 # Group names must be unique
@@ -28,17 +58,45 @@ groups : # A single, top-level section in the YAML file
     - charlie
  - name : Group2 # As many groups as you’d like
    members :
-    - david
     - bob
+    - david
+    - frank
+ - name : Group3 # As many groups as you’d like
+   members :
     - charlie
+    - ella
+    - frank
+ - name : Group4 # As many groups as you’d like
+   members :
+    - alice
+    - david
+    - ella
+ - name : Group5 # As many groups as you’d like
+   members :
+    - bob
+    - ella
+    - george
+ - name : Group6 # As many groups as you’d like
+   members :
+    - alice
+    - frank
+    - george
+ - name : Group7 # As many groups as you’d like
+   members :
+    - charlie
+    - david
+    - george
 
 sendRules :
  #- action : duplicate
+ - action : delay
+   src : bob
+   kind : ack
 
 receiveRules :
- - action : duplicate # 3rd message from Charlie that anyone
-   src : charlie # receives will be duplicated
-   seqNum : 3
+ #- action : duplicate # 3rd message from Charlie that anyone
+ #  src : charlie # receives will be duplicated
+ #  seqNum : 3
  #- action : drop
   # duplicate : true
 

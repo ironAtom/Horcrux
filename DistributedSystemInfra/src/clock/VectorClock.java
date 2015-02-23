@@ -57,7 +57,7 @@ public class VectorClock extends ClockService {
 	
 	public synchronized TimeStamp getRecvGroupTimeStamp(TimeStampedMessage message) {
 		GroupTimeStampedMessage tsMsg = (GroupTimeStampedMessage)message;//converto gpTsMsg
-		counterVector[position] += increment;
+		//counterVector[position] += increment;
 		
 		int[] value = tsMsg.getGroupTimeStamp().getValue();
 		int i;

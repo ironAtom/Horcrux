@@ -14,6 +14,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import snake.Group;
 import message.Message;
 import clock.ClockService;
 
@@ -22,6 +23,8 @@ public class CommUtil {
 	private List<Message> incomingMessages;
 	private List<Message> receive;
 	private List<Message> coHoldbackQueue;
+	private List<Message> requestQueue;
+	private List<Message> AckQueue;
 	private Map<String, SocketPairs> nameSocketMap;
 	private List<Message> outgoingMessagesDelay;
 	private List<Message> incomingMessagesDelay;
@@ -34,6 +37,9 @@ public class CommUtil {
 		incomingMessages = new LinkedList<Message>();
 		receive =  new LinkedList<Message>();
 		coHoldbackQueue = new LinkedList<Message>();
+		requestQueue = new LinkedList<Message>();
+		AckQueue = new LinkedList<Message>();
+		
 		nameSocketMap = new HashMap<String, SocketPairs>();
 		outgoingMessagesDelay = new LinkedList<Message>();
 		incomingMessagesDelay = new LinkedList<Message>();
@@ -125,6 +131,32 @@ public class CommUtil {
 				return null;
 		}
 	}
+	
+	public synchronized Message updateAckQueue(Message message, boolean isAdd) {
+		if(isAdd) {
+			AckQueue.add(message);
+			return null;
+		} else {
+			if(!AckQueue.isEmpty()) {
+				return AckQueue.remove(0);
+			}
+			else
+				return null;
+		}
+	}
+	
+	public synchronized Message updateRequestQueue(Message message, boolean isAdd) {
+		if(isAdd) {
+			requestQueue.add(message);
+			return null;
+		} else {
+			if(!requestQueue.isEmpty()) {
+				return requestQueue.remove(0);
+			}
+			else
+				return null;
+		}
+	}
 
 	// Get configuration filename
 	public synchronized String getConfigurationFilename() {
@@ -147,6 +179,23 @@ public class CommUtil {
 		return coHoldbackQueue;
 	}
 
+	public synchronized int getAckNum(Group myGroup) {
+		int count = 0;
+		for (String member: myGroup.getMembers()){
+			for (int i = 0; i < AckQueue.size(); i++){
+				if (AckQueue.get(i).getSource().equalsIgnoreCase(member))
+					count++;
+			}
+		}
+		return count;
+	}
 	
+	public synchronized void clearAckQueue() {
+		AckQueue.clear();
+	}
+	
+	public synchronized boolean requestQueueIsEmpty() {
+		return this.requestQueue.isEmpty();
+	}
 	
 }

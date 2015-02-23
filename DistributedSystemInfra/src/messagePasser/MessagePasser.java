@@ -43,24 +43,33 @@ public class MessagePasser {
 	private List<MPnode> configurations;
 	private ClockService clockService;
 	private List<Group> groups;
+	private Group myGroup;
 	private ClockService[] groupClockService;
-
+	private boolean voted;
+	private boolean isInCS;
+	private boolean blocked;
 	// Constructor
 	public MessagePasser(String configuration_filename, String local_name, ClockType clockType) {
 		// initialize 
 		configurationFilename = configuration_filename;
 		localName = local_name;
 		sequenceNumber = 0;
-
+		voted = false;
+		isInCS = false;
+		blocked = false;
+		
 		// Read configuration file, find local_name and setup listen socket
 		int portNumber = 0;
 		Configure conf = new Configure();
 		boolean isFound = false;
 		configurations = conf.getMPnodes(configuration_filename);
 		int position = 0;
+		// inital group service
+		groups = conf.getGroups(configuration_filename);
 		for(MPnode node: configurations) {
 			if(node.name.equals(localName)) {
 				portNumber = node.port;
+				myGroup = this.getGroup(node.memberOf.get(0));
 				isFound = true;
 				break;
 			}
@@ -82,7 +91,7 @@ public class MessagePasser {
 		
 		
 		// inital group service
-		groups = conf.getGroups(configuration_filename);
+		//groups = conf.getGroups(configuration_filename);
 		
 		List<Group> myGroups = new ArrayList<Group>();
 		 
@@ -167,6 +176,23 @@ public class MessagePasser {
 		return localName;
 	}
 	
+	public Group getGroup(String name){
+		for (Group gp : groups){
+			if(name.equalsIgnoreCase(gp.getName()))
+				return gp;
+		}
+		return null;
+	}
+	
+	public int getGroupId(String name){
+		for (int i = 0; i < groups.size(); i++){
+			if (groups.get(i).getName().equalsIgnoreCase(name)){
+				return i;
+			}
+		}
+		return -1;
+	}
+
 	// Check send rules and apply specific sending
 	public void send(Message message) {
 		
@@ -183,14 +209,7 @@ public class MessagePasser {
 				tsMsg.setOriginalSender(localName);
 				multicastMsg(tsMsg,i);
 				sequenceNumber++;//seq number only increase once each multicast
-//				// set group field
-//				tsMsg.setGroup(group.getName());
-//				List<String> members = group.getMembers();
-//				for(String member:members) {
-//					tsMsg.setDest(member);
-//					tsMsg.setGroupTimeStamp();
-//					setSendMsg(tsMsg);
-//				}
+
 				break;
 			}
 		}
@@ -200,6 +219,40 @@ public class MessagePasser {
 			sequenceNumber++;
 		}
 		
+	}
+	
+	public void checkState(){
+		System.out.println("In Critical Section? "+ isInCS + " Blocked? "+ blocked + " Voted? " + voted);
+	}
+	
+	public void enterCS() {//TODO:
+		if (!isInCS){
+			GroupTimeStampedMessage tsMsg = new GroupTimeStampedMessage(myGroup.getName(), "request", this.localName+ "try to enterCS");
+			tsMsg.setOriginalSender(localName);
+			int groupId = this.getGroupId(myGroup.getName());
+			multicastMsg(tsMsg,groupId);
+			sequenceNumber++;//seq number only increase once each multicast
+
+			blocked = true;
+		}
+		else{
+			System.out.println("Already in critical section!");
+		}
+	}
+
+	public void outCS(){
+		if (isInCS){
+			GroupTimeStampedMessage tsMsg = new GroupTimeStampedMessage(myGroup.getName(), "release", this.localName+ "release resourse");
+			tsMsg.setOriginalSender(localName);
+			int groupId = this.getGroupId(myGroup.getName());
+			multicastMsg(tsMsg,groupId);
+			sequenceNumber++;//seq number only increase once each multicast
+
+			this.isInCS = false;
+		}
+		else{
+			System.out.println("You are not in critical section!");
+		}
 	}
 
 	public void multicastMsg(GroupTimeStampedMessage message, int groupId) {
@@ -527,7 +580,7 @@ public class MessagePasser {
 						//recvVector[pos] += 1; // increment vector
 						TimeStamp ts = vec.getRecvGroupTimeStamp(gMsg);
 						//System.out.println("TS:"+ ts);
-						gMsg.setReceiveTimeStamp(ts);;//increment group vector clock
+						gMsg.setReceiveTimeStamp(ts);//increment group vector clock
 						return gMsg;
 					}
 				}
@@ -544,7 +597,7 @@ public class MessagePasser {
 						}
 					}
 					if (isBefore){
-						//recvVector[pos] += 1; // increment vector
+						recvVector[pos] += 1; // increment vector
 						TimeStamp ts = vec.getRecvGroupTimeStamp(gMsg);
 						//System.out.println("TS:"+ ts);
 						gMsg.setReceiveTimeStamp(ts);;//increment group vector clock
@@ -554,5 +607,40 @@ public class MessagePasser {
 			}		
 		}
 		return null;
+	}
+
+	public boolean isInCS(){
+		return this.isInCS;
+	}
+	public void setIsInCS(boolean isIn){
+		this.isInCS = isIn;
+	}
+	
+	public boolean isBlocked(){
+		return this.blocked;
+	}
+	
+	public void setBlocked(boolean block){
+		this.blocked = block;
+	}
+	
+	public boolean isVoted(){
+		return this.voted;
+	}
+	
+	public void setVoted(boolean isVoted){
+		this.voted = isVoted;
+	}
+	
+	
+	
+	public Group getMyGroup(){
+		return this.myGroup;
+	}
+
+	public void sendAck(Message recvMsg) {
+		String dest = recvMsg.getSource();
+		GroupTimeStampedMessage ackMsg = new GroupTimeStampedMessage(dest, "ack", "ack to request");
+		this.send(ackMsg);
 	}
 }

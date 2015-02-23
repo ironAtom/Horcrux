@@ -33,7 +33,8 @@ public class Configure {
 		    	String name = (String)node.get("name");
 		    	String ip = (String)node.get("ip");
 		    	int port = (Integer)node.get("port");
-		    	MPnode newNode = new MPnode(name,ip,port);
+		    	List<String> memberOf = (List<String>)node.get("memberOf");
+		    	MPnode newNode = new MPnode(name,ip,port, memberOf);
 		    	configs.add(newNode);
 		    }
 		} catch (FileNotFoundException e) {

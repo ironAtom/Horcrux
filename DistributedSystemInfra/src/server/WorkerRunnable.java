@@ -25,6 +25,7 @@ import messagePasser.CommUtil;
 import messagePasser.MessagePasser;
 import messagePasser.SocketPairs;
 import snake.Configure;
+import snake.Group;
 import snake.Rule;
 
 public class WorkerRunnable implements Runnable{
@@ -102,10 +103,23 @@ public class WorkerRunnable implements Runnable{
 						break;
 					default:
 						//tsMsg.setTimeStamp(commUtil.getClockService().getRecvTimeStamp(tsMsg));
-						commUtil.updateIncomingMessages(tsMsg, true);	
-						while((tsDelayMessage = (GroupTimeStampedMessage)commUtil.updateInDelayQueue(null, false)) != null) {
-							//tsDelayMessage.setTimeStamp(commUtil.getClockService().getRecvTimeStamp(tsDelayMessage));
-							commUtil.updateIncomingMessages(tsDelayMessage, true);
+						if (tsMsg.getKind().equalsIgnoreCase("ack")){ //ack
+							commUtil.updateAckQueue(tsMsg, true);
+							MessagePasser mp = commUtil.getMsgPasser();
+							Group myGroup = mp.getMyGroup();
+							if (myGroup.getMembers().size() == commUtil.getAckNum(myGroup)){
+								commUtil.clearAckQueue();
+								mp.setBlocked(false);
+								mp.setIsInCS(true);
+								System.out.println("Entered critical section.");
+							}
+						}
+						else{
+							commUtil.updateIncomingMessages(tsMsg, true);	
+							while((tsDelayMessage = (GroupTimeStampedMessage)commUtil.updateInDelayQueue(null, false)) != null) {
+								//tsDelayMessage.setTimeStamp(commUtil.getClockService().getRecvTimeStamp(tsDelayMessage));
+								commUtil.updateIncomingMessages(tsDelayMessage, true);
+							}
 						}
 						break;
 					}
@@ -186,16 +200,38 @@ public class WorkerRunnable implements Runnable{
 							while((msg = commUtil.getMsgPasser().getNextDeliverMsg(commUtil.getCoHoldbackQueue())) != null){//deliver m
 								commUtil.updateCoHoldbackQueue(msg, false);//remove from hold back queue
 								
-								commUtil.updateIncomingMessages(msg, true); // add to userinput Queue
-								//msg = commUtil.getMsgPasser().getNextDeliverMsg(commUtil.getCoHoldbackQueue());
-								
-								while((tsDelayMessage = (GroupTimeStampedMessage)commUtil.updateInDelayQueue(null, false)) != null) {
-									//tsDelayMessage.setTimeStamp(commUtil.getClockService().getRecvTimeStamp(tsDelayMessage));
-									commUtil.updateIncomingMessages(tsDelayMessage, true);
+								if(msg.getKind().equalsIgnoreCase("request")){ //request msg
+									MessagePasser mp =commUtil.getMsgPasser();
+									if (mp.isInCS() || mp.isVoted())
+										commUtil.updateRequestQueue(msg, true); //enqueue M(request)
+									else{
+										mp.sendAck(msg);
+										mp.setVoted(true);
+									}
+								}
+								else if(msg.getKind().equalsIgnoreCase("release")){
+									MessagePasser mp =commUtil.getMsgPasser();
+									if (commUtil.requestQueueIsEmpty()){//empty
+										mp.setVoted(false);
+									}
+									else{								
+										Message reqMsg = commUtil.updateRequestQueue(null, false);//remove Mrequest from queue
+										System.out.println("sendAk to "+reqMsg.getSource());
+										mp.sendAck(reqMsg);//send ack to Mrequest
+										mp.setVoted(true);
+									}
+										
+								}
+								else{
+									commUtil.updateIncomingMessages(msg, true); // add to userinput Queue
+									//msg = commUtil.getMsgPasser().getNextDeliverMsg(commUtil.getCoHoldbackQueue());
+									
+									while((tsDelayMessage = (GroupTimeStampedMessage)commUtil.updateInDelayQueue(null, false)) != null) {
+										//tsDelayMessage.setTimeStamp(commUtil.getClockService().getRecvTimeStamp(tsDelayMessage));
+										commUtil.updateIncomingMessages(tsDelayMessage, true);
+									}
 								}
 							}
-							
-							
 						}
 						
 						break;

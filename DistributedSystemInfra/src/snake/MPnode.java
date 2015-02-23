@@ -8,10 +8,13 @@
  * */
 package snake;
 
+import java.util.*;
+
 public class MPnode { 
 	public String name;
 	public String ip;
 	public int port;
+	public List<String> memberOf;
 	
 	/**
 	 * Constructor
@@ -19,10 +22,11 @@ public class MPnode {
 	 * @param ip string
 	 * @param port number   
 	 * */
-	public MPnode(String name,String ip, int port){
+	public MPnode(String name,String ip, int port, List<String> memberOf){
 		this.name = name;
 		this.ip = ip;
 		this.port = port;
+		this.memberOf = memberOf;
 	}
 	
 	public String toString(){

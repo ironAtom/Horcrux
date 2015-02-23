@@ -64,7 +64,7 @@ public class TestMessagePasser {
 		boolean isQuit = false;
 
 		while (!isQuit) {
-			System.out.println("1) send <dest> <kind> <data> 2) recv 3) issueTS 4) quit");
+			System.out.println("0) enterCS 1) outCS 2) checkState 3) send <dest> <kind> <data> 4) recv 5) issueTS 6) quit");
 			System.out.print("Enter your command:");
 
 			try {
@@ -72,6 +72,15 @@ public class TestMessagePasser {
 					String[] parts = userInput.split(" ", 5);
 					System.out.println(parts[0]);
 					switch(parts[0]) {
+					case "enterCS": 
+						mp.enterCS();
+						break;
+					case "outCS":
+						mp.outCS();
+						break;
+					case "checkState":
+						mp.checkState();
+						break;
 					case "quit": 
 						isQuit = true;
 						System.out.println("Goodbye " + local_name);
